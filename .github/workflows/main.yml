@@ -1,36 +1,52 @@
-name: Flutter Build APK
+name: Build Flutter APK
 
 on:
   push:
     branches:
-      - main
+      - main  # Change this to your main development branch if needed
   pull_request:
     branches:
       - main
 
 jobs:
   build:
-    name: Build APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Use macos-latest for iOS builds
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.29.1
-          channel: stable
+          flutter-version: '3.7.0'  # Ensure it matches your `pubspec.yaml`
+          cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
+      - name: Clean and Get Dependencies
+        run: |
+          flutter clean
+          flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Fix File Picker Issues
+        run: |
+          sed -i '/platforms:/, /default_package: file_picker/d' ~/.pub-cache/hosted/pub.dev/file_picker-*/pubspec.yaml || true
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4  # Updated to v4
+      - name: Fix Metadata God Namespace Issue
+        run: |
+          GRADLE_FILE=$(find ~/.pub-cache/hosted/pub.dev/metadata_god-*/android -name "build.gradle" | head -n 1)
+          if [ -f "$GRADLE_FILE" ]; then
+            echo "Applying namespace fix to metadata_god..."
+            sed -i 's/android {/android {\n    namespace "com.example.metadata_god"/' "$GRADLE_FILE"
+          else
+            echo "metadata_god build.gradle not found, skipping fix."
+          fi
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v3
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
