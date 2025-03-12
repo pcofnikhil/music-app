@@ -1,51 +1,50 @@
-name: Build Flutter APK
+name: Flutter CI & Build APK
 
 on:
   push:
     branches:
-      - main  # Change this to your main development branch if needed
+      - main
   pull_request:
     branches:
       - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Use macos-latest for iOS builds
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.7.0'  # Ensure it matches your `pubspec.yaml`
-          cache: true
+          flutter-version: "3.29.1"
+          channel: "stable"
 
-      - name: Clean and Get Dependencies
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.7.0"
+
+      - name: Verify Flutter & Dart versions
         run: |
-          flutter clean
-          flutter pub get
+          flutter --version
+          dart --version
 
-      - name: Fix File Picker Issues
-        run: |
-          sed -i '/platforms:/, /default_package: file_picker/d' ~/.pub-cache/hosted/pub.dev/file_picker-*/pubspec.yaml || true
+      - name: Install dependencies
+        run: flutter pub get
 
-      - name: Fix Metadata God Namespace Issue
-        run: |
-          GRADLE_FILE=$(find ~/.pub-cache/hosted/pub.dev/metadata_god-*/android -name "build.gradle" | head -n 1)
-          if [ -f "$GRADLE_FILE" ]; then
-            echo "Applying namespace fix to metadata_god..."
-            sed -i 's/android {/android {\n    namespace "com.example.metadata_god"/' "$GRADLE_FILE"
-          else
-            echo "metadata_god build.gradle not found, skipping fix."
-          fi
+      - name: Run Flutter analyze
+        run: flutter analyze
 
-      - name: Build Release APK
-        run: |
-          flutter build apk --release
+      - name: Run tests
+        run: flutter test
 
-      - name: Upload APK Artifact
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
