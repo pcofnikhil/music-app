@@ -1,4 +1,4 @@
-name: Flutter CI & Build APK
+name: Flutter CI
 
 on:
   push:
@@ -13,44 +13,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.29.1"
-          channel: "stable"
+          dart-version: "3.7.0"
+          cache: true
 
-      - name: Setup Dart
-        uses: dart-lang/setup-dart@v1
-        with:
-          sdk: "3.7.0"
-
-      - name: Verify Flutter & Dart versions
-        run: |
-          flutter --version
-          dart --version
-
-      - name: Clean Flutter
-        run: flutter clean
-
-      - name: Install dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Upgrade dependencies
-        run: flutter pub upgrade
+      - name: Analyze Code
+        run: flutter analyze
 
-      - name: Run Flutter analyze (Ignore Warnings)
-        run: flutter analyze || true
-
-      - name: Run tests
+      - name: Run Tests
         run: flutter test
 
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload APK artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
