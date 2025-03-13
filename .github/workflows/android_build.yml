@@ -1,0 +1,93 @@
+name: Android Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*' # Trigger on version tags
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating releases
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.2'
+          channel: 'stable'
+          
+      - name: Get dependencies
+        run: flutter pub get
+        
+      - name: Build APK
+        run: flutter build apk --release
+        
+      - name: Generate build number
+        id: build_number
+        run: echo "BUILD_NUMBER=$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+        
+      - name: Rename APK with version
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/music-app-${{ env.BUILD_NUMBER }}.apk
+          
+      # Always upload as artifact
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/music-app-${{ env.BUILD_NUMBER }}.apk
+          
+      # Create GitHub Release only when a tag is pushed
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/music-app-${{ env.BUILD_NUMBER }}.apk
+          name: Release ${{ github.ref_name }}
+          body: |
+            Music App Release ${{ github.ref_name }}
+            
+            Build Number: ${{ env.BUILD_NUMBER }}
+            
+            ### What's New
+            - Automated release from main branch
+            - Built with Flutter 3.19.2
+            
+            ### Installation
+            Download the APK file and install it on your Android device.
+            
+            ### Note
+            This is an automated release. Please check the commit history for detailed changes.
+          draft: false
+          prerelease: false
+          
+      # Create GitHub Release for main branch pushes (without tag)
+      - name: Create Development Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/music-app-${{ env.BUILD_NUMBER }}.apk
+          name: Development Build ${{ env.BUILD_NUMBER }}
+          tag_name: dev-${{ env.BUILD_NUMBER }}
+          body: |
+            Development Build from main branch
+            
+            Build Number: ${{ env.BUILD_NUMBER }}
+            Commit: ${{ github.sha }}
+            
+            ### Note
+            This is an automated development build. For stable releases, please use tagged versions.
+          draft: false
+          prerelease: true 
